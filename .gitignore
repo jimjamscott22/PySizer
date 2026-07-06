@@ -9,6 +9,9 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+frontend/dist/
+frontend/node_modules/
+node_modules/
 develop-eggs/
 dist/
 downloads/
@@ -60,6 +63,8 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+pysizer.db
+pysizer.db-journal
 
 # Flask stuff:
 instance/
