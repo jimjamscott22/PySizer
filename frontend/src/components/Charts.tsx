@@ -3,11 +3,8 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,16 +12,27 @@ import {
 } from 'recharts'
 import type { Project, Snapshot } from '../lib/types'
 import { formatBytes, formatDate } from '../lib/format'
+import { Platter } from './Platter'
 
-const colors = ['#34d399', '#22d3ee', '#a78bfa', '#fbbf24', '#fb7185', '#94a3b8']
+const colors = ['#f2a338', '#6fd4c9', '#e2554a', '#8ea2b3', '#c9a76b', '#7d8b99']
+
+const tooltipStyle = {
+  background: '#1e2124',
+  border: '1px solid #3a4048',
+  borderRadius: 2,
+  fontFamily: 'IBM Plex Mono, monospace',
+  fontSize: 12,
+  color: '#e8e4da',
+}
 
 type ChartsProps = {
   selectedProject: Project | null
   projects: Project[]
   snapshots: Snapshot[]
+  isScanning?: boolean
 }
 
-export function Charts({ selectedProject, projects, snapshots }: ChartsProps) {
+export function Charts({ selectedProject, projects, snapshots, isScanning = false }: ChartsProps) {
   const latest = selectedProject?.latest_snapshot
   const languageData = latest
     ? Object.entries(latest.language_distribution)
@@ -47,40 +55,70 @@ export function Charts({ selectedProject, projects, snapshots }: ChartsProps) {
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-      <ChartPanel title="Language distribution" empty={!languageData.length}>
-        <ResponsiveContainer width="100%" height={280}>
-          <PieChart>
-            <Pie data={languageData} dataKey="bytes" nameKey="name" outerRadius={98} innerRadius={54}>
-              {languageData.map((entry, index) => (
-                <Cell key={entry.name} fill={colors[index % colors.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(value) => formatBytes(Number(value))} />
-          </PieChart>
-        </ResponsiveContainer>
+      <ChartPanel title="Sector map — language distribution" subtitle={selectedProject?.name} empty={!languageData.length}>
+        <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start sm:justify-center">
+          <Platter
+            data={languageData}
+            colors={colors}
+            size={220}
+            spinning={isScanning}
+            centerLabel={latest ? formatBytes(latest.total_size_bytes) : undefined}
+            centerSublabel="TOTAL"
+          />
+          <ul className="grid w-full max-w-[220px] gap-1.5 font-data text-xs">
+            {languageData.slice(0, 8).map((entry, index) => (
+              <li key={entry.name} className="flex items-center justify-between gap-3 border-b border-steel-700/60 pb-1">
+                <span className="flex items-center gap-2 text-paper-100">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colors[index % colors.length] }} />
+                  {entry.name}
+                </span>
+                <span className="text-paper-300">{formatBytes(entry.bytes)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </ChartPanel>
 
-      <ChartPanel title="Project size comparison" empty={!comparisonData.length}>
+      <ChartPanel title="Capacity comparison — all volumes" empty={!comparisonData.length}>
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={comparisonData}>
-            <CartesianGrid stroke="#1e293b" vertical={false} />
-            <XAxis dataKey="name" stroke="#94a3b8" tickLine={false} />
-            <YAxis stroke="#94a3b8" tickFormatter={(value) => formatBytes(Number(value))} width={72} />
-            <Tooltip formatter={(value) => formatBytes(Number(value))} cursor={{ fill: '#0f172a' }} />
-            <Bar dataKey="bytes" fill="#34d399" radius={[4, 4, 0, 0]} />
+          <BarChart data={comparisonData} margin={{ bottom: 16 }}>
+            <CartesianGrid stroke="#3a4048" strokeOpacity={0.4} vertical={false} />
+            <XAxis
+              dataKey="name"
+              stroke="#b8b3a4"
+              tickLine={false}
+              interval={0}
+              angle={-20}
+              textAnchor="end"
+              height={48}
+              tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
+            />
+            <YAxis
+              stroke="#b8b3a4"
+              tickFormatter={(value) => formatBytes(Number(value))}
+              width={72}
+              tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
+            />
+            <Tooltip formatter={(value) => formatBytes(Number(value))} cursor={{ fill: '#24282b' }} contentStyle={tooltipStyle} />
+            <Bar dataKey="bytes" fill="#f2a338" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartPanel>
 
       <div className="xl:col-span-2">
-        <ChartPanel title="Size timeline" empty={!timelineData.length}>
-          <ResponsiveContainer width="100%" height={300}>
+        <ChartPanel title="Read/write log — capacity over time" empty={!timelineData.length}>
+          <ResponsiveContainer width="100%" height={280}>
             <LineChart data={timelineData}>
-              <CartesianGrid stroke="#1e293b" vertical={false} />
-              <XAxis dataKey="taken_at" stroke="#94a3b8" tickLine={false} />
-              <YAxis stroke="#94a3b8" tickFormatter={(value) => formatBytes(Number(value))} width={72} />
-              <Tooltip formatter={(value) => formatBytes(Number(value))} />
-              <Line type="monotone" dataKey="bytes" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} />
+              <CartesianGrid stroke="#3a4048" strokeOpacity={0.4} vertical={false} />
+              <XAxis dataKey="taken_at" stroke="#b8b3a4" tickLine={false} tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }} />
+              <YAxis
+                stroke="#b8b3a4"
+                tickFormatter={(value) => formatBytes(Number(value))}
+                width={72}
+                tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
+              />
+              <Tooltip formatter={(value) => formatBytes(Number(value))} contentStyle={tooltipStyle} />
+              <Line type="monotone" dataKey="bytes" stroke="#6fd4c9" strokeWidth={2} dot={{ r: 3, fill: '#6fd4c9' }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartPanel>
@@ -93,18 +131,25 @@ export default Charts
 
 function ChartPanel({
   title,
+  subtitle,
   empty,
   children,
 }: {
   title: string
+  subtitle?: string
   empty: boolean
   children: ReactNode
 }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-4">
-      <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-400">{title}</h2>
+    <div className="scanlines rounded-sm border border-steel-700 bg-graphite-850 p-4">
+      <div className="flex items-baseline justify-between gap-2 border-b border-steel-700 pb-2">
+        <h2 className="font-display text-sm font-bold uppercase tracking-[0.2em] text-paper-300">{title}</h2>
+        {subtitle && <span className="font-data text-[11px] text-steel-600">{subtitle}</span>}
+      </div>
       {empty ? (
-        <div className="grid h-[280px] place-items-center text-sm text-slate-500">Run a scan to populate this chart.</div>
+        <div className="grid h-[280px] place-items-center font-data text-sm text-steel-600">
+          Run a scan to populate this readout.
+        </div>
       ) : (
         <div className="mt-4">{children}</div>
       )}

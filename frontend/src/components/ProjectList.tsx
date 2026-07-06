@@ -11,6 +11,14 @@ type ProjectListProps = {
   onDelete: (project: Project) => void
 }
 
+const STATUS_COLOR: Record<string, string> = {
+  idle: 'bg-steel-600',
+  queued: 'bg-amber-signal',
+  running: 'bg-amber-signal led-active',
+  completed: 'bg-cyan-signal',
+  failed: 'bg-red-signal',
+}
+
 export function ProjectList({
   projects,
   selectedProjectId,
@@ -21,8 +29,8 @@ export function ProjectList({
 }: ProjectListProps) {
   if (!projects.length) {
     return (
-      <div className="rounded-lg border border-dashed border-slate-700 bg-slate-950/70 p-6 text-sm text-slate-400">
-        No projects are tracked yet. Register a local project path to create the first snapshot.
+      <div className="rounded border border-dashed border-steel-700 bg-graphite-850 p-6 font-data text-sm text-paper-300">
+        No volumes registered. Add a local project path below to run the first scan.
       </div>
     )
   }
@@ -33,43 +41,49 @@ export function ProjectList({
         const latest = project.latest_snapshot
         const status = scanStatuses[project.id]?.status ?? 'idle'
         const isSelected = selectedProjectId === project.id
+        const isBusy = status === 'queued' || status === 'running'
         return (
           <article
             key={project.id}
-            className={`rounded-lg border p-4 transition ${
+            className={`label-perforation rounded-sm border p-4 pl-4 transition ${
               isSelected
-                ? 'border-emerald-400/60 bg-emerald-400/10'
-                : 'border-slate-800 bg-slate-950/80 hover:border-slate-700'
+                ? 'border-amber-signal/50 bg-graphite-800'
+                : 'border-steel-700 bg-graphite-850 hover:border-steel-600'
             }`}
           >
             <button type="button" onClick={() => onSelect(project)} className="block w-full text-left">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h3 className="text-base font-semibold text-slate-50">{project.name}</h3>
-                  <p className="mt-1 break-all font-mono text-xs text-slate-500">{project.root_path}</p>
+                  <div className="font-data text-[10px] uppercase tracking-[0.25em] text-steel-600">Model</div>
+                  <h3 className="font-display text-lg font-bold leading-tight text-paper-100">{project.name}</h3>
+                  <p className="mt-1 break-all font-data text-[11px] text-paper-300">{project.root_path}</p>
                 </div>
-                <span className="rounded bg-slate-900 px-2 py-1 text-xs font-medium text-slate-300">{status}</span>
+                <span className="flex items-center gap-1.5 rounded-sm border border-steel-700 px-2 py-1 font-data text-[10px] uppercase tracking-wider text-paper-300">
+                  <span className={`h-1.5 w-1.5 rounded-full ${STATUS_COLOR[status]}`} />
+                  {status}
+                </span>
               </div>
-              <div className="mt-4 grid gap-2 text-sm text-slate-300 sm:grid-cols-4">
-                <Metric label="Size" value={latest ? formatBytes(latest.total_size_bytes) : 'not scanned'} />
-                <Metric label="Files" value={latest ? latest.file_count.toLocaleString() : 'not scanned'} />
+              <div className="mt-4 grid grid-cols-2 gap-2 border-t border-dashed border-steel-700 pt-3 font-data text-sm sm:grid-cols-4">
+                <Metric label="Capacity" value={latest ? formatBytes(latest.total_size_bytes) : '—'} />
+                <Metric label="Files" value={latest ? latest.file_count.toLocaleString() : '—'} />
                 <Metric label="Delta" value={latest ? formatDelta(latest.size_delta_bytes) : 'baseline'} />
-                <Metric label="Updated" value={latest ? formatDate(latest.taken_at) : 'never'} />
+                <Metric label="Last read" value={latest ? formatDate(latest.taken_at) : 'never'} />
               </div>
             </button>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => onScan(project)}
-                className="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-400 px-3 text-sm font-bold text-slate-950 transition hover:bg-emerald-300"
+                disabled={isBusy}
+                className="inline-flex h-9 items-center gap-2 rounded-sm bg-amber-signal px-3 font-display text-sm font-bold uppercase tracking-wider text-graphite-950 transition hover:bg-amber-signal/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Play size={15} />
-                Scan
+                <Play size={14} />
+                {isBusy ? 'Scanning' : 'Scan'}
               </button>
               <button
                 onClick={() => onDelete(project)}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-700 px-3 text-sm font-semibold text-slate-300 transition hover:border-red-400 hover:text-red-300"
+                className="inline-flex h-9 items-center gap-2 rounded-sm border border-steel-700 px-3 font-display text-sm font-semibold uppercase tracking-wider text-paper-300 transition hover:border-red-signal hover:text-red-signal"
               >
-                <Trash2 size={15} />
+                <Trash2 size={14} />
                 Remove
               </button>
             </div>
@@ -83,8 +97,8 @@ export function ProjectList({
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-[0.18em] text-slate-500">{label}</div>
-      <div className="mt-1 font-medium text-slate-100">{value}</div>
+      <div className="text-[10px] uppercase tracking-[0.18em] text-steel-600">{label}</div>
+      <div className="mt-0.5 font-medium text-paper-100">{value}</div>
     </div>
   )
 }
