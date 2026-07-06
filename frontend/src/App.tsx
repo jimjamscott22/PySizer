@@ -3,6 +3,8 @@ import { HardDrive } from 'lucide-react'
 import { ProjectForm } from './components/ProjectForm'
 import { ProjectList } from './components/ProjectList'
 import { StatsCards } from './components/StatsCards'
+import { THEME_STORAGE_KEY, ThemeSelector } from './components/ThemeSelector'
+import type { ThemeId } from './components/ThemeSelector'
 import { createProject, deleteProject, getScanStatus, listProjects, listSnapshots, scanProject } from './lib/api'
 import { formatBytes, formatDate } from './lib/format'
 import type { Project, ScanStatus, Snapshot } from './lib/types'
@@ -16,6 +18,15 @@ export function App() {
   const [scanStatuses, setScanStatuses] = useState<Record<number, ScanStatus>>({})
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [theme, setTheme] = useState<ThemeId>(() => {
+    if (typeof window === 'undefined') return 'amber'
+    return (localStorage.getItem(THEME_STORAGE_KEY) as ThemeId | null) ?? 'amber'
+  })
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem(THEME_STORAGE_KEY, theme)
+  }, [theme])
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null,
@@ -119,9 +130,12 @@ export function App() {
               </p>
             </div>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-sm border border-steel-700 bg-graphite-850 px-3 py-2 font-data text-xs uppercase tracking-wider text-paper-300">
-            <span className="h-2 w-2 rounded-full bg-cyan-signal led-active" />
-            Reads local disk only — no network egress
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="inline-flex items-center gap-2 rounded-sm border border-steel-700 bg-graphite-850 px-3 py-2 font-data text-xs uppercase tracking-wider text-paper-300">
+              <span className="h-2 w-2 rounded-full bg-cyan-signal led-active" />
+              Reads local disk only — no network egress
+            </div>
+            <ThemeSelector theme={theme} onChange={setTheme} />
           </div>
         </header>
 

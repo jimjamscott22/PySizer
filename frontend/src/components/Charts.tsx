@@ -14,15 +14,22 @@ import type { Project, Snapshot } from '../lib/types'
 import { formatBytes, formatDate } from '../lib/format'
 import { Platter } from './Platter'
 
-const colors = ['#f2a338', '#6fd4c9', '#e2554a', '#8ea2b3', '#c9a76b', '#7d8b99']
+const colors = [
+  'var(--color-amber-signal)',
+  'var(--color-cyan-signal)',
+  'var(--color-red-signal)',
+  '#8ea2b3',
+  '#c9a76b',
+  '#7d8b99',
+]
 
 const tooltipStyle = {
-  background: '#1e2124',
-  border: '1px solid #3a4048',
+  background: 'var(--color-graphite-850)',
+  border: '1px solid var(--color-steel-700)',
   borderRadius: 2,
   fontFamily: 'IBM Plex Mono, monospace',
   fontSize: 12,
-  color: '#e8e4da',
+  color: 'var(--color-paper-100)',
 }
 
 type ChartsProps = {
@@ -82,10 +89,10 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
       <ChartPanel title="Capacity comparison — all volumes" empty={!comparisonData.length}>
         <ResponsiveContainer width="100%" height={280}>
           <BarChart data={comparisonData} margin={{ bottom: 16 }}>
-            <CartesianGrid stroke="#3a4048" strokeOpacity={0.4} vertical={false} />
+            <CartesianGrid stroke="var(--color-steel-700)" strokeOpacity={0.4} vertical={false} />
             <XAxis
               dataKey="name"
-              stroke="#b8b3a4"
+              stroke="var(--color-paper-300)"
               tickLine={false}
               interval={0}
               angle={-20}
@@ -94,13 +101,17 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
               tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
             />
             <YAxis
-              stroke="#b8b3a4"
+              stroke="var(--color-paper-300)"
               tickFormatter={(value) => formatBytes(Number(value))}
               width={72}
               tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
             />
-            <Tooltip formatter={(value) => formatBytes(Number(value))} cursor={{ fill: '#24282b' }} contentStyle={tooltipStyle} />
-            <Bar dataKey="bytes" fill="#f2a338" radius={[2, 2, 0, 0]} />
+            <Tooltip
+              formatter={(value) => formatBytes(Number(value))}
+              cursor={{ fill: 'var(--color-graphite-800)' }}
+              contentStyle={tooltipStyle}
+            />
+            <Bar dataKey="bytes" fill="var(--color-amber-signal)" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </ChartPanel>
@@ -109,16 +120,27 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
         <ChartPanel title="Read/write log — capacity over time" empty={!timelineData.length}>
           <ResponsiveContainer width="100%" height={280}>
             <LineChart data={timelineData}>
-              <CartesianGrid stroke="#3a4048" strokeOpacity={0.4} vertical={false} />
-              <XAxis dataKey="taken_at" stroke="#b8b3a4" tickLine={false} tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }} />
+              <CartesianGrid stroke="var(--color-steel-700)" strokeOpacity={0.4} vertical={false} />
+              <XAxis
+                dataKey="taken_at"
+                stroke="var(--color-paper-300)"
+                tickLine={false}
+                tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
+              />
               <YAxis
-                stroke="#b8b3a4"
+                stroke="var(--color-paper-300)"
                 tickFormatter={(value) => formatBytes(Number(value))}
                 width={72}
                 tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
               />
               <Tooltip formatter={(value) => formatBytes(Number(value))} contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="bytes" stroke="#6fd4c9" strokeWidth={2} dot={{ r: 3, fill: '#6fd4c9' }} />
+              <Line
+                type="monotone"
+                dataKey="bytes"
+                stroke="var(--color-cyan-signal)"
+                strokeWidth={2}
+                dot={{ r: 3, fill: 'var(--color-cyan-signal)' }}
+              />
             </LineChart>
           </ResponsiveContainer>
         </ChartPanel>

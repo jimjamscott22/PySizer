@@ -21,6 +21,88 @@
 :root {
   color-scheme: dark;
   background: var(--color-graphite-950);
+  --app-glow: rgba(242, 163, 56, 0.06);
+}
+
+/* Schematic drafting table: blueprint navy, chalk-cyan linework */
+[data-theme="blueprint"] {
+  --color-graphite-950: #0d1b2e;
+  --color-graphite-900: #122540;
+  --color-graphite-850: #17304f;
+  --color-graphite-800: #1d3a5f;
+  --color-steel-700: #2f5178;
+  --color-steel-600: #3f6690;
+  --color-paper-100: #eaf2fb;
+  --color-paper-300: #a9c3dc;
+  --color-amber-signal: #5ec8f2;
+  --color-cyan-signal: #8fe3b8;
+  --color-red-signal: #ef6b5e;
+  --app-glow: rgba(94, 200, 242, 0.08);
+}
+
+/* NVG phosphor green: tactical low-light readout */
+[data-theme="night-ops"] {
+  --color-graphite-950: #0a0f0a;
+  --color-graphite-900: #0f150f;
+  --color-graphite-850: #141c14;
+  --color-graphite-800: #1a241a;
+  --color-steel-700: #2e3d2e;
+  --color-steel-600: #3d4f3d;
+  --color-paper-100: #d9f5d0;
+  --color-paper-300: #9fc494;
+  --color-amber-signal: #6ee23a;
+  --color-cyan-signal: #b6f7c9;
+  --color-red-signal: #ff4d3d;
+  --app-glow: rgba(110, 226, 58, 0.07);
+}
+
+/* Hazard stencil: warning-label yellow and black */
+[data-theme="warning-label"] {
+  --color-graphite-950: #121110;
+  --color-graphite-900: #1a1815;
+  --color-graphite-850: #221f1a;
+  --color-graphite-800: #2b2721;
+  --color-steel-700: #453f34;
+  --color-steel-600: #5c5344;
+  --color-paper-100: #f5efe0;
+  --color-paper-300: #c9bfa6;
+  --color-amber-signal: #ffcc00;
+  --color-cyan-signal: #8fd3c4;
+  --color-red-signal: #e2402f;
+  --app-glow: rgba(255, 204, 0, 0.07);
+}
+
+/* Data-center blue-gray, status-LED accents */
+[data-theme="server-rack"] {
+  --color-graphite-950: #14181d;
+  --color-graphite-900: #1a1f25;
+  --color-graphite-850: #21272e;
+  --color-graphite-800: #2a313a;
+  --color-steel-700: #414b57;
+  --color-steel-600: #576373;
+  --color-paper-100: #e4eaef;
+  --color-paper-300: #a9b7c4;
+  --color-amber-signal: #4f9dff;
+  --color-cyan-signal: #63e6be;
+  --color-red-signal: #ff5c5c;
+  --app-glow: rgba(79, 157, 255, 0.07);
+}
+
+/* Cream card stock, IBM-blue ink — the one light theme */
+[data-theme="punch-card"] {
+  color-scheme: light;
+  --color-graphite-950: #efe6d0;
+  --color-graphite-900: #e8dcc0;
+  --color-graphite-850: #e0d2b0;
+  --color-graphite-800: #d6c69c;
+  --color-steel-700: #b8a578;
+  --color-steel-600: #9c8a5e;
+  --color-paper-100: #1c1810;
+  --color-paper-300: #4a4030;
+  --color-amber-signal: #2f5fa8;
+  --color-cyan-signal: #1f7a6c;
+  --color-red-signal: #b3241c;
+  --app-glow: rgba(47, 95, 168, 0.06);
 }
 
 body {
@@ -28,7 +110,7 @@ body {
   min-width: 320px;
   font-family: var(--font-body);
   background:
-    radial-gradient(circle at 12% -10%, rgba(242, 163, 56, 0.06), transparent 45%),
+    radial-gradient(circle at 12% -10%, var(--app-glow), transparent 45%),
     var(--color-graphite-950);
 }
 
