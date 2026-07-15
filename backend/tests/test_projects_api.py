@@ -7,6 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.database import engine
+from app.database import Base
+from app.main import create_app
 from app.models import Snapshot
 from app.services.scan_coordinator import scan_coordinator
 
@@ -25,6 +27,17 @@ def test_sqlite_foreign_keys_are_enabled() -> None:
         enabled = connection.execute(text("PRAGMA foreign_keys")).scalar_one()
 
     assert enabled == 1
+
+
+def test_app_startup_bootstraps_schema(tmp_path: Path) -> None:
+    Base.metadata.drop_all(bind=engine)
+
+    app = create_app()
+    with TestClient(app) as client:
+        response = client.get("/projects/")
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_duplicate_scan_returns_conflict(client: TestClient, tmp_path: Path) -> None:
