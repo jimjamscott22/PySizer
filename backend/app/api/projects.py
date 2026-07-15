@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from threading import Lock
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from sqlalchemy import select
@@ -21,22 +20,27 @@ from app.schemas import (
     ScanStatus,
     SnapshotRead,
 )
+from app.services.exports import snapshots_to_csv
+from app.services.project_queries import get_project_summary, list_project_summaries
+from app.services.scan_coordinator import ProjectBusyError, scan_coordinator
 from app.services.snapshots import create_snapshot
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
-scan_statuses: dict[int, ScanStatus] = {}
-scan_status_lock = Lock()
-
-
-def project_to_read(project: Project) -> ProjectRead:
-    latest = project.snapshots[-1] if project.snapshots else None
+def project_to_read(
+    project: Project,
+    latest_snapshot: Snapshot | None,
+) -> ProjectRead:
     return ProjectRead(
         id=project.id,
         name=project.name,
         root_path=project.root_path,
         created_at=project.created_at,
-        latest_snapshot=SnapshotRead.model_validate(latest) if latest else None,
+        latest_snapshot=(
+            SnapshotRead.model_validate(latest_snapshot)
+            if latest_snapshot is not None
+            else None
+        ),
     )
 
 
@@ -55,32 +59,18 @@ def validate_root_path(raw_path: str) -> str:
     return str(resolved)
 
 
-def set_scan_status(project_id: int, status: ScanStatus) -> None:
-    with scan_status_lock:
-        scan_statuses[project_id] = status
-
-
 def run_scan(project_id: int, max_depth: int | None, trigger: str) -> None:
-    set_scan_status(project_id, ScanStatus(project_id=project_id, status="running"))
+    scan_coordinator.start(project_id)
     db = SessionLocal()
     try:
         project = db.get(Project, project_id)
         if project is None:
-            set_scan_status(
-                project_id,
-                ScanStatus(project_id=project_id, status="failed", message="Project not found"),
-            )
+            scan_coordinator.fail(project_id, "Project not found")
             return
         snapshot = create_snapshot(db, project, max_depth=max_depth, trigger=trigger)
-        set_scan_status(
-            project_id,
-            ScanStatus(project_id=project_id, status="completed", snapshot_id=snapshot.id),
-        )
+        scan_coordinator.complete(project_id, snapshot.id)
     except Exception as exc:  # pragma: no cover - defensive status boundary
-        set_scan_status(
-            project_id,
-            ScanStatus(project_id=project_id, status="failed", message=str(exc)),
-        )
+        scan_coordinator.fail(project_id, str(exc))
     finally:
         db.close()
 
@@ -96,27 +86,24 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db)) -> Pro
         db.rollback()
         raise HTTPException(status_code=409, detail="Project name already exists") from exc
     db.refresh(project)
-    return project_to_read(project)
+    return project_to_read(project, None)
 
 
 @router.get("/", response_model=list[ProjectListItem])
 def list_projects(db: Session = Depends(get_db)) -> list[ProjectRead]:
-    projects = db.execute(
-        select(Project).options(selectinload(Project.snapshots)).order_by(Project.created_at.desc())
-    ).scalars().all()
-    return [project_to_read(project) for project in projects]
+    return [
+        project_to_read(project, latest_snapshot)
+        for project, latest_snapshot in list_project_summaries(db)
+    ]
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
 def get_project(project_id: int, db: Session = Depends(get_db)) -> ProjectRead:
-    project = db.execute(
-        select(Project)
-        .where(Project.id == project_id)
-        .options(selectinload(Project.snapshots))
-    ).scalars().first()
-    if project is None:
+    summary = get_project_summary(db, project_id)
+    if summary is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    return project_to_read(project)
+    project, latest_snapshot = summary
+    return project_to_read(project, latest_snapshot)
 
 
 @router.post("/{project_id}/scan", response_model=ScanQueued, status_code=202)
@@ -126,17 +113,18 @@ def queue_scan(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ) -> ScanQueued:
+    if not scan_coordinator.try_queue(project_id):
+        raise HTTPException(status_code=409, detail="Project scan is already in progress")
     if db.get(Project, project_id) is None:
+        scan_coordinator.cancel(project_id)
         raise HTTPException(status_code=404, detail="Project not found")
-    set_scan_status(project_id, ScanStatus(project_id=project_id, status="queued"))
     background_tasks.add_task(run_scan, project_id, payload.max_depth, payload.trigger)
     return ScanQueued(project_id=project_id, status="queued")
 
 
 @router.get("/{project_id}/scan-status", response_model=ScanStatus)
 def get_scan_status(project_id: int) -> ScanStatus:
-    with scan_status_lock:
-        return scan_statuses.get(project_id, ScanStatus(project_id=project_id, status="idle"))
+    return scan_coordinator.get(project_id)
 
 
 @router.get("/{project_id}/snapshots", response_model=list[SnapshotRead])
@@ -171,33 +159,35 @@ def export_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    project_read = project_to_read(project)
     snapshots = [SnapshotRead.model_validate(snapshot) for snapshot in project.snapshots]
+    latest_snapshot = max(
+        project.snapshots,
+        key=lambda snapshot: (snapshot.taken_at, snapshot.id),
+        default=None,
+    )
+    project_read = project_to_read(project, latest_snapshot)
     if format == "csv":
-        lines = ["id,taken_at,total_size_bytes,file_count,size_delta_bytes,trigger,warnings"]
-        for snapshot in snapshots:
-            lines.append(
-                ",".join(
-                    [
-                        str(snapshot.id),
-                        snapshot.taken_at.isoformat(),
-                        str(snapshot.total_size_bytes),
-                        str(snapshot.file_count),
-                        "" if snapshot.size_delta_bytes is None else str(snapshot.size_delta_bytes),
-                        snapshot.trigger,
-                        "|".join(snapshot.warnings),
-                    ]
+        return Response(
+            content=snapshots_to_csv(snapshots),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="pysizer-project-{project_id}.csv"'
                 )
-            )
-        return Response(content="\n".join(lines), media_type="text/csv")
+            },
+        )
 
     return ExportResponse(project=project_read, snapshots=snapshots)
 
 
 @router.delete("/{project_id}", status_code=204)
 def delete_project(project_id: int, db: Session = Depends(get_db)) -> None:
-    project = db.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=404, detail="Project not found")
-    db.delete(project)
-    db.commit()
+    try:
+        with scan_coordinator.delete_reservation(project_id):
+            project = db.get(Project, project_id)
+            if project is None:
+                raise HTTPException(status_code=404, detail="Project not found")
+            db.delete(project)
+            db.commit()
+    except ProjectBusyError as exc:
+        raise HTTPException(status_code=409, detail="Project scan is in progress") from exc

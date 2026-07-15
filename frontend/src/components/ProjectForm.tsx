@@ -18,6 +18,8 @@ export function ProjectForm({ onSubmit }: ProjectFormProps) {
       await onSubmit(name, rootPath)
       setName('')
       setRootPath('')
+    } catch {
+      // App owns the visible error; retain the submitted values for correction.
     } finally {
       setIsSaving(false)
     }

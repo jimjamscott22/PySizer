@@ -11,6 +11,10 @@ import type { Project, ScanStatus, Snapshot } from './lib/types'
 
 const Charts = lazy(() => import('./components/Charts'))
 
+function messageFrom(caught: unknown, fallback: string): string {
+  return caught instanceof Error ? caught.message : fallback
+}
+
 export function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
@@ -90,29 +94,42 @@ export function App() {
 
   async function handleCreateProject(name: string, rootPath: string) {
     setError(null)
-    const project = await createProject(name, rootPath)
-    await refreshProjects()
-    setSelectedProjectId(project.id)
+    try {
+      const project = await createProject(name, rootPath)
+      await refreshProjects()
+      setSelectedProjectId(project.id)
+    } catch (caught: unknown) {
+      setError(messageFrom(caught, 'Failed to create project'))
+      throw caught
+    }
   }
 
   async function handleScan(project: Project) {
     setError(null)
-    await scanProject(project.id)
-    const status = await getScanStatus(project.id)
-    setScanStatuses((current) => ({ ...current, [project.id]: status }))
-    await refreshProjects()
-    if (selectedProject?.id === project.id) {
-      setSnapshots(await listSnapshots(project.id))
+    try {
+      await scanProject(project.id)
+      const status = await getScanStatus(project.id)
+      setScanStatuses((current) => ({ ...current, [project.id]: status }))
+      await refreshProjects()
+      if (selectedProject?.id === project.id) {
+        setSnapshots(await listSnapshots(project.id))
+      }
+    } catch (caught: unknown) {
+      setError(messageFrom(caught, 'Failed to start scan'))
     }
   }
 
   async function handleDelete(project: Project) {
     setError(null)
-    await deleteProject(project.id)
-    if (selectedProjectId === project.id) {
-      setSelectedProjectId(null)
+    try {
+      await deleteProject(project.id)
+      if (selectedProjectId === project.id) {
+        setSelectedProjectId(null)
+      }
+      await refreshProjects()
+    } catch (caught: unknown) {
+      setError(messageFrom(caught, 'Failed to remove project'))
     }
-    await refreshProjects()
   }
 
   return (
@@ -140,7 +157,10 @@ export function App() {
         </header>
 
         {error && (
-          <div className="rounded-sm border border-red-signal/50 bg-red-signal/10 px-4 py-3 font-data text-sm text-red-signal">
+          <div
+            role="alert"
+            className="rounded-sm border border-red-signal/50 bg-red-signal/10 px-4 py-3 font-data text-sm text-red-signal"
+          >
             {error}
           </div>
         )}

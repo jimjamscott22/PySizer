@@ -1,24 +1,8 @@
-import os
-import tempfile
 from pathlib import Path
 
-test_db_path = Path(tempfile.gettempdir()) / "pysizer_test.db"
-test_db_path.unlink(missing_ok=True)
-os.environ["DATABASE_URL"] = f"sqlite:///{test_db_path}"
-
-from app.database import Base, SessionLocal, engine
+from app.database import SessionLocal
 from app.models import Project, Snapshot
 from app.services.snapshots import create_snapshot
-
-
-def setup_function() -> None:
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-
-
-def teardown_module() -> None:
-    engine.dispose()
-    test_db_path.unlink(missing_ok=True)
 
 
 def test_project_scan_snapshot_and_delta_flow(tmp_path: Path) -> None:

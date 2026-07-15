@@ -1,7 +1,13 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def normalize_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 class ProjectCreate(BaseModel):
@@ -22,6 +28,11 @@ class SnapshotRead(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @field_validator("taken_at", mode="before")
+    @classmethod
+    def ensure_taken_at_is_utc(cls, value: datetime) -> datetime:
+        return normalize_utc(value)
+
 
 class ProjectRead(BaseModel):
     id: int
@@ -29,6 +40,11 @@ class ProjectRead(BaseModel):
     root_path: str
     created_at: datetime
     latest_snapshot: SnapshotRead | None = None
+
+    @field_validator("created_at", mode="before")
+    @classmethod
+    def ensure_created_at_is_utc(cls, value: datetime) -> datetime:
+        return normalize_utc(value)
 
 
 class ProjectListItem(ProjectRead):
