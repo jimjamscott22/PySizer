@@ -1,7 +1,7 @@
 # PySizer
 A local-first web application that scans software project directories, calculates storage sizes, and visualizes growth trends. The tool helps developers monitor their project's disk space usage over time.
 
-![PySizer Screenshot](/img/py-sizer-scrnsht.png)
+![PySizer Homepage](/img/py-sizer-scrnsht.png)
 
 ## Stack
 
@@ -42,6 +42,27 @@ npm run dev
 ```
 
 The Vite dev server proxies `/projects` and `/health` to `http://127.0.0.1:8000`.
+
+## Start both servers
+
+After completing the setup above, use the launcher for your operating system to
+start the backend and frontend together.
+
+Windows PowerShell:
+
+```powershell
+.\start.ps1
+```
+
+Linux:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+Press `Ctrl+C` to stop both servers. The launchers do not install dependencies
+or apply database migrations.
 
 ## Tests
 
