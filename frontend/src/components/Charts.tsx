@@ -23,6 +23,8 @@ const colors = [
   '#7d8b99',
 ]
 
+const COMPARISON_TOP_N = 10
+
 const tooltipStyle = {
   background: 'var(--color-graphite-850)',
   border: '1px solid var(--color-steel-700)',
@@ -46,12 +48,15 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
         .map(([name, value]) => ({ name, bytes: value.bytes, files: value.files }))
         .sort((a, b) => b.bytes - a.bytes)
     : []
-  const comparisonData = projects
+  const rankedProjects = projects
     .filter((project) => project.latest_snapshot)
     .map((project) => ({
       name: project.name,
       bytes: project.latest_snapshot?.total_size_bytes ?? 0,
     }))
+    .sort((a, b) => b.bytes - a.bytes)
+  const comparisonData = rankedProjects.slice(0, COMPARISON_TOP_N)
+  const omittedProjectCount = rankedProjects.length - comparisonData.length
   const timelineData = [...snapshots]
     .reverse()
     .map((snapshot) => ({
@@ -86,18 +91,14 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
         </div>
       </ChartPanel>
 
-      <ChartPanel title="Capacity comparison — all volumes" empty={!comparisonData.length}>
+      <ChartPanel title="Read/write log — capacity over time" empty={!timelineData.length}>
         <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={comparisonData} margin={{ bottom: 16 }}>
+          <LineChart data={timelineData}>
             <CartesianGrid stroke="var(--color-steel-700)" strokeOpacity={0.4} vertical={false} />
             <XAxis
-              dataKey="name"
+              dataKey="taken_at"
               stroke="var(--color-paper-300)"
               tickLine={false}
-              interval={0}
-              angle={-20}
-              textAnchor="end"
-              height={48}
               tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
             />
             <YAxis
@@ -106,25 +107,35 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
               width={72}
               tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
             />
-            <Tooltip
-              formatter={(value) => formatBytes(Number(value))}
-              cursor={{ fill: 'var(--color-graphite-800)' }}
-              contentStyle={tooltipStyle}
+            <Tooltip formatter={(value) => formatBytes(Number(value))} contentStyle={tooltipStyle} />
+            <Line
+              type="monotone"
+              dataKey="bytes"
+              stroke="var(--color-cyan-signal)"
+              strokeWidth={2}
+              dot={{ r: 3, fill: 'var(--color-cyan-signal)' }}
             />
-            <Bar dataKey="bytes" fill="var(--color-amber-signal)" radius={[2, 2, 0, 0]} />
-          </BarChart>
+          </LineChart>
         </ResponsiveContainer>
       </ChartPanel>
 
       <div className="xl:col-span-2">
-        <ChartPanel title="Read/write log — capacity over time" empty={!timelineData.length}>
+        <ChartPanel
+          title={omittedProjectCount > 0 ? `Capacity comparison — top ${COMPARISON_TOP_N} volumes` : 'Capacity comparison — all volumes'}
+          subtitle={omittedProjectCount > 0 ? `+${omittedProjectCount} more not shown` : undefined}
+          empty={!comparisonData.length}
+        >
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={timelineData}>
+            <BarChart data={comparisonData} margin={{ bottom: 16 }}>
               <CartesianGrid stroke="var(--color-steel-700)" strokeOpacity={0.4} vertical={false} />
               <XAxis
-                dataKey="taken_at"
+                dataKey="name"
                 stroke="var(--color-paper-300)"
                 tickLine={false}
+                interval={0}
+                angle={-20}
+                textAnchor="end"
+                height={48}
                 tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
               />
               <YAxis
@@ -133,15 +144,13 @@ export function Charts({ selectedProject, projects, snapshots, isScanning = fals
                 width={72}
                 tick={{ fontFamily: 'IBM Plex Mono', fontSize: 11 }}
               />
-              <Tooltip formatter={(value) => formatBytes(Number(value))} contentStyle={tooltipStyle} />
-              <Line
-                type="monotone"
-                dataKey="bytes"
-                stroke="var(--color-cyan-signal)"
-                strokeWidth={2}
-                dot={{ r: 3, fill: 'var(--color-cyan-signal)' }}
+              <Tooltip
+                formatter={(value) => formatBytes(Number(value))}
+                cursor={{ fill: 'var(--color-graphite-800)' }}
+                contentStyle={tooltipStyle}
               />
-            </LineChart>
+              <Bar dataKey="bytes" fill="var(--color-amber-signal)" radius={[2, 2, 0, 0]} />
+            </BarChart>
           </ResponsiveContainer>
         </ChartPanel>
       </div>
