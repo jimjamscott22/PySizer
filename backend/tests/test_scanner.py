@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from app.services.scanner import scan_directory
 
 
@@ -41,3 +43,27 @@ def test_scan_directory_excludes_default_like_directories(tmp_path: Path) -> Non
 
     assert result.file_count == 1
     assert result.as_json_distribution()["JavaScript"]["files"] == 1
+
+
+def test_scan_directory_counts_allocated_blocks_for_sparse_file(tmp_path: Path) -> None:
+    sparse_file = tmp_path / "disk.raw"
+    logical_size = 32 * 1024 * 1024
+    with sparse_file.open("wb") as file:
+        file.seek(logical_size - 1)
+        file.write(b"\0")
+
+    stat_result = sparse_file.stat()
+    blocks = getattr(stat_result, "st_blocks", None)
+    if blocks is None:
+        pytest.skip("This platform does not expose allocated block counts")
+    allocated_size = blocks * 512
+    if allocated_size >= logical_size:
+        pytest.skip("The test filesystem did not create a sparse file")
+
+    result = scan_directory(tmp_path, max_depth=1, excluded_dirs=set())
+
+    assert result.total_size_bytes == allocated_size
+    assert result.as_json_distribution()["Other"] == {
+        "bytes": allocated_size,
+        "files": 1,
+    }

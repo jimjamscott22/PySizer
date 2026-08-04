@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import cache
 from pathlib import Path
 
 
@@ -67,6 +69,43 @@ def classify_language(path: Path, mapping: dict[str, str] | None = None) -> str:
     return language_mapping.get(path.suffix.lower(), "Other")
 
 
+@cache
+def _get_windows_compressed_file_size() -> Callable[..., int]:
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    get_compressed_file_size = kernel32.GetCompressedFileSizeW
+    get_compressed_file_size.argtypes = (
+        wintypes.LPCWSTR,
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    get_compressed_file_size.restype = wintypes.DWORD
+    return get_compressed_file_size
+
+
+def _windows_allocated_size(path: Path) -> int:
+    import ctypes
+    from ctypes import wintypes
+
+    high_order = wintypes.DWORD()
+    ctypes.set_last_error(0)
+    low_order = _get_windows_compressed_file_size()(str(path), ctypes.byref(high_order))
+    error_code = ctypes.get_last_error()
+    if low_order == 0xFFFFFFFF and error_code != 0:
+        raise ctypes.WinError(error_code)
+    return (high_order.value << 32) | low_order
+
+
+def allocated_size_bytes(path: Path, stat_result: os.stat_result) -> int:
+    blocks = getattr(stat_result, "st_blocks", None)
+    if blocks is not None:
+        return blocks * 512
+    if os.name == "nt":
+        return _windows_allocated_size(path)
+    return stat_result.st_size
+
+
 def scan_directory(
     path: Path,
     max_depth: int,
@@ -105,13 +144,14 @@ def scan_directory(
                         elif entry.is_file(follow_symlinks=False):
                             stat_result = entry.stat(follow_symlinks=False)
                             file_path = Path(entry.path)
+                            file_size = allocated_size_bytes(file_path, stat_result)
                             language = classify_language(file_path, language_mapping)
                             bucket = result.language_distribution.setdefault(
                                 language, LanguageBucket()
                             )
-                            bucket.bytes += stat_result.st_size
+                            bucket.bytes += file_size
                             bucket.files += 1
-                            result.total_size_bytes += stat_result.st_size
+                            result.total_size_bytes += file_size
                             result.file_count += 1
                     except (OSError, PermissionError) as exc:
                         result.warnings.append(f"Skipped {entry.path}: {exc}")
